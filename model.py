@@ -1,10 +1,11 @@
 import arbor as arb
 import numpy as np
 import pandas as pd
-import l2l as l2l
 from random import randrange as rand
-
 from dataclasses import dataclass
+
+from l2l.optimizees.optimizee import Optimizee
+from l2l.utils.trajectory import Trajectory
 
 @dataclass
 class parameters:
@@ -68,7 +69,7 @@ def load_allen_fit(fit):
 
     return default, param, erev, mechs
 
-class ArbSCOptimizee(l2l.Optimizee):
+class ArbSCOptimizee(Optimizee):
     def __init__(self, traj):
         self.segment_tree = arb.load_swc_allen('cell.swc', no_gaps=False)
         self.morphology = arb.morphology(segment_tree)
@@ -106,8 +107,8 @@ class ArbSCOptimizee(l2l.Optimizee):
             multi-dimensional fitness function.
         """
         cell = arb.cable_cell(self.morphology, labels)
-        cell.compartments_length(20) 
-    
+        cell.compartments_length(20)
+
         cell.set_properties(tempK=self.defaults.tempK, Vm=self.defaults.Vm, cm=self.defaults.cm, rL=self.defaults.rL)
         for region, vs in regions:
             cell.paint(f'"{region}"', tempK=vs.tempK, Vm=vs.Vm, cm=vs.cm, rL=vs.rL)
@@ -117,7 +118,7 @@ class ArbSCOptimizee(l2l.Optimizee):
 
         for region, mech, values in mechanisms:
             cell.paint(f'"{region}"', arb.mechanism(mech, values))
-    
+
         cell.place('"center"', arb.iclamp(200, 1000, 0.15))
         model = arb.single_cell_model(cell)
         model.probe('voltage', '"center"', frequency=200000)
@@ -128,8 +129,8 @@ class ArbSCOptimizee(l2l.Optimizee):
         return (((voltages - reference)**2).sum(), )
 
 # Da Plan
-# - make a cell from 
+# - make a cell from
 #   - random initial params (that's forgetting all the Allen stuff, just keep the mechs/ions, but not parameters)
 #   - the morphology (.swc)
 # - run the simulation
-# - compare U-trace to `nrn.csv` 
+# - compare U-trace to `nrn.csv`
