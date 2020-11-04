@@ -71,22 +71,7 @@ def load_allen_fit(fit):
 
 class ArbSCOptimizee(Optimizee):
     def __init__(self, traj):
-        self.segment_tree = arb.load_swc_allen('cell.swc', no_gaps=False)
-        self.morphology = arb.morphology(segment_tree)
-        self.labels = arb.label_dict({'soma': '(tag 1)', 'axon': '(tag 2)',
-                                      'dend': '(tag 3)', 'apic': '(tag 4)',
-                                      'center': '(location 0 0.5)'})
-        self.reference  = pd.read_csv('nrn.csv')['U/mv'].values()*1000.0
-        params = load_allen_fit('fit.json')
-        self.defaults, self.regions, self.ions, self.mechanisms = params
-
-        # randomise mechanisms
-        for idx in len(self.mechanisms):
-            r, m, vs = self.mechanisms[idx]
-            vs = { k: rand(-1.0, +1.0) for k, v in vs.items() }
-            self.mechanisms[idx] = (r, m, vs)
-
-        traj.f_add_parameter_group('individual', 'Contains parameters of the optimizee')
+        pass
 
     def create_individual(self):
         """
@@ -96,6 +81,22 @@ class ArbSCOptimizee(Optimizee):
         model specific e.g. In simulated annealing, it is perturbed on specific criteria
         :return dict: A dictionary containing the names of the parameters and their values
         """
+        self.segment_tree = arb.load_swc_allen('cell.swc', no_gaps=False)
+        self.morphology = arb.morphology(segment_tree)
+        self.labels = arb.label_dict({'soma': '(tag 1)', 'axon': '(tag 2)',
+                                      'dend': '(tag 3)', 'apic': '(tag 4)',
+                                      'center': '(location 0 0.5)'})
+        self.reference  = pd.read_csv('nrn.csv')['U/mv'].values()*1000.0
+        params = load_allen_fit('fit.json')
+        self.defaults, self.regions, self.ions, mechs = params
+
+        # randomise mechanisms
+        result = {}
+        for idx in len(mechs):
+            r, m, vs = mechs[idx]
+            for k, v in vs:
+                result[(r, m, k)] = rand(-1.0, +1.0)
+        return result
 
     def simulate(self, traj):
         """
@@ -106,18 +107,19 @@ class ArbSCOptimizee(Optimizee):
         :return: a :class:`tuple` containing the fitness values of the current run. The :class:`tuple` allows a
             multi-dimensional fitness function.
         """
-        cell = arb.cable_cell(self.morphology, labels)
+        cell = arb.cable_cell(self.morphology, self.labels)
         cell.compartments_length(20)
 
         cell.set_properties(tempK=self.defaults.tempK, Vm=self.defaults.Vm, cm=self.defaults.cm, rL=self.defaults.rL)
-        for region, vs in regions:
+        for region, vs in self.regions:
             cell.paint(f'"{region}"', tempK=vs.tempK, Vm=vs.Vm, cm=vs.cm, rL=vs.rL)
-        for region, ion, e in ions:
+        for region, ion, e in self.ions:
             cell.paint(f'"{region}"', ion, rev_pot=e)
         cell.set_ion('ca', int_con=5e-5, ext_con=2.0, method=arb.mechanism('nernst/x=ca'))
 
-        for region, mech, values in mechanisms:
-            cell.paint(f'"{region}"', arb.mechanism(mech, values))
+        print(traj)
+        # for region, mech, values in traj:
+            # cell.paint(f'"{region}"', arb.mechanism(mech, values))
 
         cell.place('"center"', arb.iclamp(200, 1000, 0.15))
         model = arb.single_cell_model(cell)
