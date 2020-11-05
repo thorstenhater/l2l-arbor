@@ -106,11 +106,20 @@ class ArbSCOptimizee(Optimizee):
         for region, ion, e in self.ions:
             cell.paint(f'"{region}"', ion, rev_pot=e)
         cell.set_ion('ca', int_con=5e-5, ext_con=2.0, method=arb.mechanism('nernst/x=ca'))
-        # TODO Fixme
-        print(traj)
-        # for region, mech, values in traj:
-            # cell.paint(f'"{region}"', arb.mechanism(mech, values))
-        # TODO End
+
+        # print(traj.individual)
+        # traj.individual.param1 etc.
+
+        # rebuild mechs = defaultdict(dict)
+        tmp = defaultdict(dict)
+        for key,val in traj.individual.items():
+            region, mech, valuename = key.split('.')
+            tmp[(region, mech)][valuename] = val
+        rebuilt = [(r, m, vs) for (r, m), vs in tmp.items()]
+
+        for region, mech, values in rebuilt:
+            cell.paint(f'"{region}"', arb.mechanism(mech, values))
+
         cell.place('"center"', arb.iclamp(200, 1000, 0.15))
         model = arb.single_cell_model(cell)
         model.probe('voltage', '"center"', frequency=200000)
@@ -121,8 +130,9 @@ class ArbSCOptimizee(Optimizee):
         return (((voltages - self.reference)**2).sum(), )
 
 def main():
-    fit, swc, ref = sys.argv[1:]
-    name = 'L2L-FUN-GA'
+    # fit, swc, ref = sys.argv[1:]
+    fit, swc, ref = 'fit.json', 'cell.swc', 'nrn.csv'
+    name = 'ARBOR-FUN'
     logger = logging.getLogger(name)
     root_dir_path = "."
     paths = Paths(name, dict(run_no='test'), root_dir_path=root_dir_path)
