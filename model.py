@@ -6,13 +6,12 @@ import logging.config
 import os
 import yaml
 import  sys
+from collections import defaultdict
 
-from l2l.utils.environment import Environment
+from l2l.utils.experiment import Experiment
 from l2l.optimizers.evolution import GeneticAlgorithmOptimizer, GeneticAlgorithmParameters
-from l2l.paths import Paths
 from l2l.utils import JUBE_runner as jube
 from l2l.optimizees.optimizee import Optimizee
-from l2l.utils.trajectory import Trajectory
 
 @dataclass
 class PhyPar:
@@ -107,17 +106,12 @@ class ArbSCOptimizee(Optimizee):
             cell.paint(f'"{region}"', ion, rev_pot=e)
         cell.set_ion('ca', int_con=5e-5, ext_con=2.0, method=arb.mechanism('nernst/x=ca'))
 
-        # print(traj.individual)
-        # traj.individual.param1 etc.
-
-        # rebuild mechs = defaultdict(dict)
         tmp = defaultdict(dict)
-        for key,val in traj.individual.items():
+        for key, val in traj.individual.items():
             region, mech, valuename = key.split('.')
             tmp[(region, mech)][valuename] = val
-        rebuilt = [(r, m, vs) for (r, m), vs in tmp.items()]
 
-        for region, mech, values in rebuilt:
+        for (region, mech), values in tmp.items():
             cell.paint(f'"{region}"', arb.mechanism(mech, values))
 
         cell.place('"center"', arb.iclamp(200, 1000, 0.15))
@@ -126,48 +120,26 @@ class ArbSCOptimizee(Optimizee):
         model.properties.catalogue = arb.allen_catalogue()
         model.properties.catalogue.extend(arb.default_catalogue(), '')
         model.run(tfinal=1400, dt=0.005)
-        voltages  = np.array(model.traces[0].value[:])
+        voltages = np.array(model.traces[0].value[:])
         return (((voltages - self.reference)**2).sum(), )
 
 def main():
-    # fit, swc, ref = sys.argv[1:]
-    fit, swc, ref = 'fit.json', 'cell.swc', 'nrn.csv'
+    fit, swc, ref = sys.argv[1:]
     name = 'ARBOR-FUN'
-    logger = logging.getLogger(name)
-    root_dir_path = "."
-    paths = Paths(name, dict(run_no='test'), root_dir_path=root_dir_path)
-    traj_file = os.path.join(paths.output_dir_path, 'data.h5')
-    # Create an environment that handles running our simulation
-    # This initializes an environment
-    env = Environment(trajectory=name, filename=traj_file, file_title='{} data'.format(name),
-                      comment='{} data'.format(name),
-                      add_time=True,
-                      automatic_storing=True,
-                      log_stdout=False,  # Sends stdout to logs
-                      log_folder=os.path.join(paths.output_dir_path, 'logs'))
-    # Get the trajectory from the environment
-    traj = env.trajectory
-    # Set JUBE params
-    traj.f_add_parameter_group("JUBE_params", "Contains JUBE parameters")
-    # The execution command
-    traj.f_add_parameter_to_group("JUBE_params", "exec", "python " + os.path.join(paths.simulation_path, "run_files/run_optimizee.py"))
-    # Paths
-    traj.f_add_parameter_to_group("JUBE_params", "paths", paths)
+    results_folder = '../results'
+    trajectory_name = 'ARBOR'
+    experiment = Experiment(results_folder)
+    traj, _    = experiment.prepare_experiment(trajectory_name=trajectory_name, name=name, jube_parameter={})
     ## Innerloop simulator
     optimizee = ArbSCOptimizee(traj, fit, swc, ref)
-    # Prepare optimizee for jube runs
-    jube.prepare_optimizee(optimizee, paths.simulation_path)
     ## Outerloop optimizer initialization
     parameters = GeneticAlgorithmParameters(seed=0, popsize=50, CXPB=0.5, MUTPB=0.3, NGEN=100, indpb=0.02, tournsize=15, matepar=0.5, mutpar=1)
     optimizer  = GeneticAlgorithmOptimizer(traj, optimizee_create_individual=optimizee.create_individual, optimizee_fitness_weights=(-0.1,), parameters=parameters)
-    # Add post processing
-    env.add_postprocessing(optimizer.post_process)
-    # Run the simulation with all parameter combinations
-    env.run(optimizee.simulate)
-    ## Outerloop optimizer end
-    optimizer.end()
-    # Finally disable logging and close all log-files
-    env.disable_logging()
+    optimizee  = ArbSCOptimizee(traj, fit, swc, ref)
+    parameters = GeneticAlgorithmParameters(seed=0, popsize=50, CXPB=0.5, MUTPB=0.3, NGEN=100, indpb=0.02, tournsize=15, matepar=0.5, mutpar=1)
+    optimizer  = GeneticAlgorithmOptimizer(traj, optimizee_create_individual=optimizee.create_individual, optimizee_fitness_weights=(-0.1,), parameters=parameters)
+    experiment.run_experiment(optimizee=optimizee, optimizer=optimizer, optimizer_parameters=parameters, optimizee_parameters=None)
+    experiment.end_experiment(optimizer)
 
 if __name__ == '__main__':
     main()
