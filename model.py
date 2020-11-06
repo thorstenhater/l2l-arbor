@@ -2,16 +2,13 @@ import arbor as arb
 import numpy as np
 from random import randrange as rand
 from dataclasses import dataclass
-import logging.config
-import os
-import yaml
-import  sys
+import sys
 from collections import defaultdict
 
 from l2l.utils.experiment import Experiment
 from l2l.optimizers.evolution import GeneticAlgorithmOptimizer, GeneticAlgorithmParameters
-from l2l.utils import JUBE_runner as jube
 from l2l.optimizees.optimizee import Optimizee
+
 
 @dataclass
 class PhyPar:
@@ -19,6 +16,7 @@ class PhyPar:
     tempK: float = None
     Vm:    float = None
     rL:    float = None
+
 
 def load_allen_fit(fit):
     from collections import defaultdict
@@ -30,10 +28,10 @@ def load_allen_fit(fit):
     param = defaultdict(PhyPar)
     mechs = defaultdict(dict)
     for block in fit['genome']:
-        mech   = block['mechanism'] or 'pas'
+        mech = block['mechanism'] or 'pas'
         region = block['section']
-        name   = block['name']
-        value  = float(block['value'])
+        name = block['name']
+        value = float(block['value'])
         if name.endswith('_' + mech):
             name = name[:-(len(mech) + 1)]
         else:
@@ -59,7 +57,7 @@ def load_allen_fit(fit):
     param = [(r, vs) for r, vs in param.items()]
     mechs = [(r, m, vs) for (r, m), vs in mechs.items()]
 
-    default = PhyPar(None, # not set in example file
+    default = PhyPar(None,  # not set in example file
                      float(fit['conditions'][0]['celsius']) + 273.15,
                      float(fit['conditions'][0]['v_init']),
                      float(fit['passive'][0]['ra']))
@@ -75,6 +73,7 @@ def load_allen_fit(fit):
 
     return default, param, erev, mechs
 
+
 class ArbSCOptimizee(Optimizee):
     def __init__(self, traj, fit, swc, ref):
         self.fns = (fit, swc, ref)
@@ -87,7 +86,7 @@ class ArbSCOptimizee(Optimizee):
         self.labels = arb.label_dict({'soma': '(tag 1)', 'axon': '(tag 2)',
                                       'dend': '(tag 3)', 'apic': '(tag 4)',
                                       'center': '(location 0 0.5)'})
-        self.reference  = pd.read_csv(ref)['U/mV'].values*1000.0
+        self.reference = pd.read_csv(ref)['U/mV'].values*1000.0
         self.defaults, self.regions, self.ions, mechs = load_allen_fit(fit)
         # randomise mechanisms
         result = {}
@@ -99,12 +98,16 @@ class ArbSCOptimizee(Optimizee):
     def simulate(self, traj):
         cell = arb.cable_cell(self.morphology, self.labels)
         cell.compartments_length(20)
-        cell.set_properties(tempK=self.defaults.tempK, Vm=self.defaults.Vm, cm=self.defaults.cm, rL=self.defaults.rL)
+        cell.set_properties(tempK=self.defaults.tempK, Vm=self.defaults.Vm,
+                            cm=self.defaults.cm, rL=self.defaults.rL)
         for region, vs in self.regions:
-            cell.paint(f'"{region}"', tempK=vs.tempK, Vm=vs.Vm, cm=vs.cm, rL=vs.rL)
+            cell.paint(f'"{region}"',
+                       tempK=vs.tempK, Vm=vs.Vm, cm=vs.cm, rL=vs.rL)
         for region, ion, e in self.ions:
             cell.paint(f'"{region}"', ion, rev_pot=e)
-        cell.set_ion('ca', int_con=5e-5, ext_con=2.0, method=arb.mechanism('nernst/x=ca'))
+        cell.set_ion('ca',
+                     int_con=5e-5, ext_con=2.0,
+                     method=arb.mechanism('nernst/x=ca'))
 
         tmp = defaultdict(dict)
         for key, val in traj.individual.items():
@@ -123,23 +126,35 @@ class ArbSCOptimizee(Optimizee):
         voltages = np.array(model.traces[0].value[:])
         return (((voltages - self.reference)**2).sum(), )
 
+
 def main():
     fit, swc, ref = sys.argv[1:]
     name = 'ARBOR-FUN'
     results_folder = '../results'
     trajectory_name = 'ARBOR'
     experiment = Experiment(results_folder)
-    traj, _    = experiment.prepare_experiment(trajectory_name=trajectory_name, name=name, jube_parameter={})
-    ## Innerloop simulator
+    traj, _ = experiment.prepare_experiment(trajectory_name=trajectory_name,
+                                            name=name,
+                                            jube_parameter={})
+    # Innerloop simulator
     optimizee = ArbSCOptimizee(traj, fit, swc, ref)
-    ## Outerloop optimizer initialization
-    parameters = GeneticAlgorithmParameters(seed=0, popsize=50, CXPB=0.5, MUTPB=0.3, NGEN=100, indpb=0.02, tournsize=15, matepar=0.5, mutpar=1)
-    optimizer  = GeneticAlgorithmOptimizer(traj, optimizee_create_individual=optimizee.create_individual, optimizee_fitness_weights=(-0.1,), parameters=parameters)
-    optimizee  = ArbSCOptimizee(traj, fit, swc, ref)
-    parameters = GeneticAlgorithmParameters(seed=0, popsize=50, CXPB=0.5, MUTPB=0.3, NGEN=100, indpb=0.02, tournsize=15, matepar=0.5, mutpar=1)
-    optimizer  = GeneticAlgorithmOptimizer(traj, optimizee_create_individual=optimizee.create_individual, optimizee_fitness_weights=(-0.1,), parameters=parameters)
-    experiment.run_experiment(optimizee=optimizee, optimizer=optimizer, optimizer_parameters=parameters, optimizee_parameters=None)
+    # Outerloop optimizer initialization
+    parameters = GeneticAlgorithmParameters(seed=0, popsize=50,
+                                            CXPB=0.5, MUTPB=0.3, NGEN=100,
+                                            indpb=0.02,
+                                            tournsize=15,
+                                            matepar=0.5,
+                                            mutpar=1)
+    optimizer = GeneticAlgorithmOptimizer(traj,
+                                          optimizee_create_individual=optimizee.create_individual,
+                                          optimizee_fitness_weights=(-0.1,),
+                                          parameters=parameters)
+    experiment.run_experiment(optimizee=optimizee,
+                              optimizer=optimizer,
+                              optimizer_parameters=parameters,
+                              optimizee_parameters=None)
     experiment.end_experiment(optimizer)
+
 
 if __name__ == '__main__':
     main()
