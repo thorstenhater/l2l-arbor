@@ -1,0 +1,146 @@
+nernst:
+  - - ca
+    - 5e-5
+    - 2.0
+defaults:
+  Vm: -90.0
+  cm: null
+  rL: 100.0
+  tempK: 307.15
+ions:
+- - soma
+  - na
+  - 53.0
+- - soma
+  - k
+  - -107.0
+- - axon
+  - na
+  - 53.0
+- - axon
+  - k
+  - -107.0
+- - apic
+  - na
+  - 53.0
+- - apic
+  - k
+  - -107.0
+- - dend
+  - na
+  - 53.0
+- - dend
+  - k
+  - -107.0
+mechs:
+- - soma
+  - pas
+  - e: -76.4024
+    g: 0.000119174
+- - axon
+  - pas
+  - e: -64.8595
+    g: 0.00147346
+- - apic
+  - pas
+  - e: -81.3599
+    g: 0.00041148
+- - dend
+  - pas
+  - e: -88.2554
+    g: 9.57001e-05
+- - axon
+  - NaV
+  - gbar: 0.035766
+- - axon
+  - K_T
+  - gbar: 7.51307e-05
+- - axon
+  - Kd
+  - gbar: 0.00700751
+- - axon
+  - Kv2like
+  - gbar: 0.0675078
+- - axon
+  - Kv3_1
+  - gbar: 0.592911
+- - axon
+  - SK
+  - gbar: 0.000701147
+- - axon
+  - Ca_HVA
+  - gbar: 2.17253e-06
+- - axon
+  - Ca_LVA
+  - gbar: 0.00698184
+- - axon
+  - CaDynamics
+  - decay: 226.076
+    gamma: 0.0416279
+- - soma
+  - NaV
+  - gbar: 0.0499779
+- - soma
+  - SK
+  - gbar: 0.000733676
+- - soma
+  - Kv3_1
+  - gbar: 0.186718
+- - soma
+  - Ca_HVA
+  - gbar: 9.96973e-05
+- - soma
+  - Ca_LVA
+  - gbar: 0.00344495
+- - soma
+  - CaDynamics
+  - decay: 42.2507
+    gamma: 0.0177038
+- - soma
+  - Ih
+  - gbar: 1.07608e-07
+- - apic
+  - NaV
+  - gbar: 0.000375636
+- - apic
+  - Kv3_1
+  - gbar: 0.797015
+- - apic
+  - Im_v2
+  - gbar: 0.00854163
+- - apic
+  - Ih
+  - gbar: 7.40408e-07
+- - dend
+  - NaV
+  - gbar: 0.0472215
+- - dend
+  - Kv3_1
+  - gbar: 0.186859
+- - dend
+  - Im_v2
+  - gbar: 0.00132163
+- - dend
+  - Ih
+  - gbar: 9.18815e-06
+regions:
+- - soma
+  - Vm: null
+    cm: 0.042156700000000005
+    rL: 133.577
+    tempK: null
+- - axon
+  - Vm: null
+    cm: 0.090228
+    rL: 80.3823
+    tempK: null
+- - apic
+  - Vm: null
+    cm: 0.0834542
+    rL: 136.032
+    tempK: null
+- - dend
+  - Vm: null
+    cm: 0.021124800000000003
+    rL: 68.355
+    tempK: null
